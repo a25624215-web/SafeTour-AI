@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from database import engine, Base, init_db, get_db
+from database import engine, Base, init_db, init_database, get_db
 import models
 import crud
 import auth
@@ -176,7 +176,6 @@ class EmergencyRequest(BaseModel):
 
 @app.post("/emergency-alert")
 def emergency_alert(data: EmergencyRequest, db: Session = Depends(get_db)):
-    # Parse mock lat/lon or Kanpur default
     lat, lon = 26.4499, 80.3319
     sos_record = crud.create_sos_alert(
         db=db,
@@ -237,7 +236,6 @@ def nearby_safety(latitude: float, longitude: float):
         }
 
     except Exception:
-        # Fallback to predefined local safety landmarks
         fallback_places = [
             {"name": "Kotwali Police Station & Patrol Outpost", "type": "police", "latitude": latitude + 0.003, "longitude": longitude + 0.002},
             {"name": "District Civil Hospital Trauma Center", "type": "hospital", "latitude": latitude - 0.004, "longitude": longitude + 0.003},

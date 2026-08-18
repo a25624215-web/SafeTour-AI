@@ -1,200 +1,190 @@
 -- =========================================================
--- SAFETOUR AI DATABASE SCHEMA (MICROSOFT SQL SERVER)
+-- SAFETOUR AI DATABASE SCHEMA
 -- Smart Tourist Safety Monitoring & Incident Response System
 -- =========================================================
 
--- DATABASE CREATION
-IF DB_ID('safetour_ai') IS NULL
-BEGIN
-    CREATE DATABASE safetour_ai;
-END
-GO
-
-USE safetour_ai;
-GO
-
 -- =========================================================
 -- 1. USERS TABLE
+-- Tourist, Authority and Admin accounts
 -- =========================================================
-IF OBJECT_ID('users', 'U') IS NULL
-CREATE TABLE users (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    phone VARCHAR(20) NULL,
-    role VARCHAR(20) DEFAULT 'tourist' CHECK (role IN ('tourist', 'admin', 'responder')),
-    profile_image VARCHAR(255) NULL,
-    is_active BIT DEFAULT 1,
-    created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    phone VARCHAR(20),
+    role VARCHAR(20) NOT NULL DEFAULT 'tourist' CHECK (role IN ('tourist', 'authority', 'admin', 'responder')),
+    profile_image VARCHAR(500),
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-GO
 
 -- =========================================================
 -- 2. EMERGENCY CONTACTS TABLE
+-- Police, Hospital, Ambulance & Family Contacts
 -- =========================================================
-IF OBJECT_ID('emergency_contacts', 'U') IS NULL
-CREATE TABLE emergency_contacts (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    user_id INT NOT NULL,
-    name VARCHAR(100) NOT NULL,
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NULL,
+    name VARCHAR(150) NOT NULL,
+    contact_type VARCHAR(50) DEFAULT 'Family',
     phone VARCHAR(20) NOT NULL,
-    relationship VARCHAR(50) NULL,
-    is_primary BIT DEFAULT 0,
-    created_at DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_emergency_contacts_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    relationship VARCHAR(50),
+    address VARCHAR(500),
+    city VARCHAR(100),
+    latitude DECIMAL(10, 7),
+    longitude DECIMAL(10, 7),
+    is_primary BOOLEAN DEFAULT 0,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-GO
 
 -- =========================================================
--- 3. LOCATIONS TABLE (Tourist Destinations & Landmarks)
+-- 3. LOCATIONS & TOURIST PLACES
+-- Tourist spots & safety scores
 -- =========================================================
-IF OBJECT_ID('locations', 'U') IS NULL
-CREATE TABLE locations (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    name VARCHAR(150) NOT NULL,
-    address VARCHAR(MAX) NULL,
+CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    address VARCHAR(500),
     city VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,
     country VARCHAR(100) DEFAULT 'India',
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
     safety_score DECIMAL(5, 2) DEFAULT 8.50,
     crowd_density VARCHAR(20) DEFAULT 'medium' CHECK (crowd_density IN ('low', 'medium', 'high', 'surge')),
     lighting_condition VARCHAR(20) DEFAULT 'good' CHECK (lighting_condition IN ('poor', 'moderate', 'good', 'well-lit')),
-    created_at DATETIME DEFAULT GETDATE()
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-GO
 
 -- =========================================================
--- 4. GEOFENCE ZONES TABLE (Danger, Caution, Safe Zones)
+-- 4. GEOFENCE ZONES
+-- Restricted, danger & monitored areas
 -- =========================================================
-IF OBJECT_ID('geofence_zones', 'U') IS NULL
-CREATE TABLE geofence_zones (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    name VARCHAR(150) NOT NULL,
-    description VARCHAR(MAX) NULL,
-    zone_type VARCHAR(20) NOT NULL CHECK (zone_type IN ('restricted', 'caution', 'safe', 'high_altitude')),
-    risk_level VARCHAR(20) NOT NULL CHECK (risk_level IN ('LOW', 'CAUTION', 'HIGH', 'CRITICAL')),
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
+CREATE TABLE IF NOT EXISTS geofence_zones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    zone_type VARCHAR(30) NOT NULL DEFAULT 'danger' CHECK (zone_type IN ('danger', 'restricted', 'caution', 'safe', 'high_altitude')),
+    risk_level VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (risk_level IN ('LOW', 'CAUTION', 'HIGH', 'CRITICAL', 'low', 'medium', 'high', 'critical')),
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
     radius_km DECIMAL(6, 2) NOT NULL DEFAULT 1.0,
-    advisory_message VARCHAR(MAX) NOT NULL,
-    is_active BIT DEFAULT 1,
-    created_at DATETIME DEFAULT GETDATE()
+    radius_meters DECIMAL(10, 2) DEFAULT 1000.0,
+    advisory_message TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-GO
 
 -- =========================================================
--- 5. SAFETY REPORTS TABLE (Crowdsourced Incident Reports)
+-- 5. SOS ALERTS & INCIDENTS
+-- Real-time distress panic events
 -- =========================================================
-IF OBJECT_ID('safety_reports', 'U') IS NULL
-CREATE TABLE safety_reports (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    user_id INT NULL,
-    location_id INT NULL,
-    report_type VARCHAR(100) NOT NULL, -- e.g., 'Harassment', 'Theft', 'Landslide', 'Poor Lighting', 'Scam'
+CREATE TABLE IF NOT EXISTS sos_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    caller_name VARCHAR(100),
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
+    emergency_type VARCHAR(50) DEFAULT 'General SOS',
+    message TEXT,
+    status VARCHAR(30) DEFAULT 'active' CHECK (status IN ('active', 'acknowledged', 'dispatched', 'in_progress', 'resolved', 'cancelled')),
+    dispatched_to VARCHAR(255),
+    assigned_authority_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_authority_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- =========================================================
+-- 6. SAFETY REPORTS
+-- Crowdsourced incident logs
+-- =========================================================
+CREATE TABLE IF NOT EXISTS safety_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    location_id INTEGER,
+    report_type VARCHAR(100) NOT NULL,
     severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-    description VARCHAR(MAX) NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
+    description TEXT NOT NULL,
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'resolved', 'dismissed')),
-    created_at DATETIME DEFAULT GETDATE(),
-    resolved_at DATETIME NULL,
-    CONSTRAINT FK_safety_reports_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
-    CONSTRAINT FK_safety_reports_locations FOREIGN KEY (location_id) REFERENCES locations (id) ON DELETE SET NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
 );
-GO
 
 -- =========================================================
--- 6. SOS ALERTS TABLE (Emergency Panic Triggers)
+-- 7. SAFETY ALERTS & NOTIFICATIONS
+-- Tourist and Authority advisories
 -- =========================================================
-IF OBJECT_ID('sos_alerts', 'U') IS NULL
-CREATE TABLE sos_alerts (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    user_id INT NULL,
-    caller_name VARCHAR(100) NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    emergency_type VARCHAR(50) DEFAULT 'General SOS', -- 'Medical', 'Assault', 'Lost', 'Natural Disaster'
-    message VARCHAR(MAX) NULL,
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'acknowledged', 'dispatched', 'resolved')),
-    dispatched_to VARCHAR(255) NULL, -- 'Local Police PCR', 'Medical Ambulance 108', 'Forest Ranger'
-    created_at DATETIME DEFAULT GETDATE(),
-    resolved_at DATETIME NULL,
-    CONSTRAINT FK_sos_alerts_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
-);
-GO
-
--- =========================================================
--- 7. SAFETY ALERTS / ADVISORIES (Broadcasts & Warnings)
--- =========================================================
-IF OBJECT_ID('safety_alerts', 'U') IS NULL
-CREATE TABLE safety_alerts (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    location_id INT NULL,
+CREATE TABLE IF NOT EXISTS safety_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_id INTEGER,
+    user_id INTEGER,
     title VARCHAR(200) NOT NULL,
-    description VARCHAR(MAX) NOT NULL,
-    alert_type VARCHAR(100) NOT NULL, -- 'Weather Advisory', 'Curfew', 'Avalanche Warning', 'Festival Surge'
-    severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    description TEXT NOT NULL,
+    alert_type VARCHAR(100) DEFAULT 'General Advisory',
+    severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('info', 'warning', 'low', 'medium', 'high', 'critical', 'danger')),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    valid_until DATETIME NULL,
-    created_at DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_safety_alerts_locations FOREIGN KEY (location_id) REFERENCES locations (id) ON DELETE SET NULL
+    valid_until TIMESTAMP,
+    is_read BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-GO
 
 -- =========================================================
--- 8. TRIPS & ITINERARY TABLE
+-- 8. TRIPS & ITINERARIES
+-- Tourist travel plans
 -- =========================================================
-IF OBJECT_ID('trips', 'U') IS NULL
-CREATE TABLE trips (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    user_id INT NOT NULL,
+CREATE TABLE IF NOT EXISTS trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
     destination VARCHAR(150) NOT NULL,
-    start_location VARCHAR(150) NULL,
-    start_date DATE NULL,
-    end_date DATE NULL,
+    start_location VARCHAR(150),
+    start_date DATE,
+    end_date DATE,
     safety_rating VARCHAR(20) DEFAULT 'SAFE',
     status VARCHAR(20) DEFAULT 'planned' CHECK (status IN ('planned', 'ongoing', 'completed', 'cancelled')),
-    created_at DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_trips_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-GO
 
 -- =========================================================
--- 9. LOCATION HISTORY & TELEMETRY TABLE
+-- 9. LOCATION HISTORY & TELEMETRY
+-- Live GPS tracking breadcrumbs
 -- =========================================================
-IF OBJECT_ID('location_history', 'U') IS NULL
-CREATE TABLE location_history (
-    id INT IDENTITY(1, 1) PRIMARY KEY,
-    user_id INT NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    speed_kmh DECIMAL(5, 2) NULL,
-    battery_level INT NULL,
-    recorded_at DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_location_history_users FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS location_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
+    speed_kmh DECIMAL(5, 2),
+    battery_level INTEGER,
+    accuracy DECIMAL(10, 2),
+    location_source VARCHAR(30) DEFAULT 'gps',
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-GO
 
 -- =========================================================
--- INDEXES FOR MAXIMUM QUERY PERFORMANCE
+-- INDEXES
 -- =========================================================
-CREATE INDEX idx_users_email ON users (email);
-GO
-CREATE INDEX idx_reports_user ON safety_reports (user_id);
-GO
-CREATE INDEX idx_reports_coords ON safety_reports (latitude, longitude);
-GO
-CREATE INDEX idx_sos_user ON sos_alerts (user_id);
-GO
-CREATE INDEX idx_sos_status ON sos_alerts (status);
-GO
-CREATE INDEX idx_zones_coords ON geofence_zones (latitude, longitude);
-GO
-CREATE INDEX idx_location_history_user ON location_history (user_id, recorded_at);
-GO
-CREATE INDEX idx_trips_user ON trips (user_id);
-GO
+CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+CREATE INDEX IF NOT EXISTS idx_reports_user ON safety_reports (user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_coords ON safety_reports (latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_sos_user ON sos_alerts (user_id);
+CREATE INDEX IF NOT EXISTS idx_sos_status ON sos_alerts (status);
+CREATE INDEX IF NOT EXISTS idx_zones_coords ON geofence_zones (latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_zones_active ON geofence_zones (is_active);
+CREATE INDEX IF NOT EXISTS idx_location_history_user ON location_history (user_id, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_trips_user ON trips (user_id);
