@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeTour-AI | Tourist Safety Sentinel & Command Center</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS & JS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #070e0a;
+      color: #e6ede8;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .glass-forest {
+      background: rgba(10, 24, 16, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(223, 177, 91, 0.22);
+    }
+    .glass-forest-card {
+      background: rgba(13, 30, 20, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(223, 177, 91, 0.18);
+    }
+    .glow-gold {
+      box-shadow: 0 0 25px rgba(223, 177, 91, 0.25);
+    }
+    .glow-rose {
+      box-shadow: 0 0 35px rgba(239, 68, 68, 0.45);
+    }
+    /* Custom User Marker */
+    .custom-user-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse-ring {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(223, 177, 91, 0.4);
+      animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+    .pulse-dot {
+      position: relative;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #dfb15b;
+      border: 2px solid #070e0a;
+      box-shadow: 0 0 10px #dfb15b;
+    }
+    @keyframes ping {
+      75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+    .leaflet-popup-content-wrapper {
+      background: #0d1f15 !important;
+      color: #e6ede8 !important;
+      border: 1px solid rgba(223, 177, 91, 0.3) !important;
+      border-radius: 12px !important;
+    }
+    .leaflet-popup-tip {
+      background: #0d1f15 !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-[#dfb15b] selection:text-black">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="sticky top-0 z-40 glass-forest border-b border-[#dfb15b]/20 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#dfb15b] to-emerald-400 p-[1.5px]">
+        <div class="w-full h-full bg-[#070e0a] rounded-xl flex items-center justify-center text-lg font-bold text-[#dfb15b]">
+          🛡️
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-base font-extrabold tracking-wide text-white">SafeTour-AI</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">SENTINEL v2.0</span>
+        </div>
+        <p class="text-[11px] text-zinc-400 font-mono">Smart Tourist Safety & Incident Response System</p>
+      </div>
+    </div>
+
+    <!-- Right Header Actions -->
+    <div class="flex items-center gap-3">
+      <a href="/docs" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#14261c] hover:bg-[#1a3325] border border-emerald-500/30 text-xs font-semibold text-emerald-300 transition-colors">
+        <span>📖 API Docs</span>
+      </a>
+      <button onclick="openSosModal()" class="relative inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider glow-rose hover:scale-105 active:scale-95 transition-all">
+        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+        <span>🚨 SOS Beacon</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD CONTENT -->
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1">
+
+    <!-- REAL-TIME GEOFENCE PROXIMITY ALERT BANNER -->
+    <div id="geofenceBanner" class="hidden p-4 rounded-2xl border transition-all duration-300">
+      <div class="flex items-start gap-3.5">
+        <span id="geofenceIcon" class="text-2xl mt-0.5">⚠️</span>
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <h4 id="geofenceTitle" class="text-sm font-bold text-white uppercase tracking-wider">Geofence Proximity Alert</h4>
+            <span id="geofenceBadge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-500/40">CAUTION</span>
+          </div>
+          <p id="geofenceMessage" class="text-xs text-zinc-300 mt-1">Analyzing safety boundaries...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP TELEMETRY METRIC CARDS -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- 1. Tourist Identity -->
+      <div class="glass-forest-card rounded-2xl p-4 flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-[#14261c] border border-emerald-500/30 flex items-center justify-center text-xl text-emerald-400">
+          👤
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-[11px] text-zinc-400 font-mono">Active Tourist</p>
+          <h3 id="currentUserName" class="text-sm font-bold text-white truncate">Aarav Sharma</h3>
+          <span class="text-[10px] text-[#dfb15b] font-mono">ID: #1 • SafePass Verified</span>
+        </div>
+      </div>
+
+      <!-- 2. Sentinel Grid Status -->
+      <div class="glass-forest-card rounded-2xl p-4 flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-[#10291d] border border-emerald-500/40 flex items-center justify-center text-xl text-emerald-400">
+          🛰️
+        </div>
+        <div>
+          <p class="text-[11px] text-zinc-400 font-mono">Sentinel Protection</p>
+          <h3 class="text-sm font-bold text-emerald-300">ACTIVE RADAR</h3>
+          <span class="text-[10px] text-zinc-400 font-mono">SQLite Database: Connected</span>
+        </div>
+      </div>
+
+      <!-- 3. Current GPS Telemetry -->
+      <div class="glass-forest-card rounded-2xl p-4 flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-[#262013] border border-[#dfb15b]/40 flex items-center justify-center text-xl text-[#dfb15b]">
+          🧭
+        </div>
+        <div>
+          <p class="text-[11px] text-zinc-400 font-mono">Live Coordinates</p>
+          <h3 id="liveCoordsDisplay" class="text-xs font-mono font-bold text-[#dfb15b]">26.4499° N, 80.3319° E</h3>
+          <span id="coordsCity" class="text-[10px] text-zinc-400 font-mono">Kanpur / Demo Sector</span>
+        </div>
+      </div>
+
+      <!-- 4. Perceived Threat Gauge -->
+      <div class="glass-forest-card rounded-2xl p-4 flex items-center gap-3.5">
+        <div class="w-12 h-12 rounded-xl bg-[#16291e] border border-emerald-500/30 flex items-center justify-center text-xl text-emerald-400">
+          📡
+        </div>
+        <div>
+          <p class="text-[11px] text-zinc-400 font-mono">Terrain Threat Level</p>
+          <h3 id="threatLevelDisplay" class="text-sm font-bold text-emerald-300">NOMINAL (SAFE)</h3>
+          <span class="text-[10px] text-emerald-400 font-mono">Safety Index: 8.5 / 10</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN WORKSPACE: MAP + AI RISK ANALYZER -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- MAP RADAR COLUMN (7 COLS) -->
+      <div class="lg:col-span-7 glass-forest rounded-3xl p-5 flex flex-col justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span>🗺️ Interactive Alpine Safety Radar</span>
+            </h3>
+            <p id="mapStatusText" class="text-xs text-zinc-400 font-mono mt-0.5">Spatial telemetry calibrated</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="detectUserLocation()" type="button" class="px-3 py-1.5 rounded-xl bg-[#14261c] hover:bg-[#1a3325] border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-all">
+              <span>📍 Detect GPS</span>
+            </button>
+            <button onclick="scanNearbyRadar()" type="button" class="px-3 py-1.5 rounded-xl bg-[#262013] hover:bg-[#332a19] border border-[#dfb15b]/40 text-[#dfb15b] text-xs font-semibold flex items-center gap-1.5 transition-all">
+              <span>🔄 Scan 3km Radar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Leaflet Map Canvas -->
+        <div class="relative w-full h-[400px] rounded-2xl overflow-hidden border border-[#dfb15b]/20 shadow-inner">
+          <div id="map" class="w-full h-full"></div>
+          
+          <!-- Legend Overlay -->
+          <div class="absolute bottom-2 left-2 z-[1000] glass-forest px-3 py-1.5 rounded-xl text-[10px] text-zinc-300 flex flex-wrap items-center gap-2.5 border border-[#dfb15b]/30">
+            <span>📍 Traveler</span>
+            <span>🚓 Police</span>
+            <span>🏥 Hospital</span>
+            <span>💊 Pharmacy</span>
+            <span class="text-[#dfb15b]">⚠️ Caution</span>
+            <span class="text-rose-400">🚨 Restricted</span>
+          </div>
+        </div>
+
+        <!-- Discovered Safety Points Carousel -->
+        <div id="safetyPointsSection" class="mt-4 hidden">
+          <h4 class="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2">Emergency Outposts in Range (<span id="safetyPointsCount">0</span>)</h4>
+          <div id="safetyPointsList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-36 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <!-- AI RISK ASSESSMENT COLUMN (5 COLS) -->
+      <div class="lg:col-span-5 glass-forest rounded-3xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#dfb15b]/20">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🤖</span>
+              <h3 class="text-base font-bold text-white">AI Safety Risk Engine</h3>
+            </div>
+            <span class="text-[10px] font-mono text-[#dfb15b] bg-[#262013] px-2 py-0.5 rounded-full border border-[#dfb15b]/30">Model v2.0</span>
+          </div>
+
+          <form id="riskForm" onsubmit="handleAnalyzeRisk(event)" class="space-y-3.5">
+            <div>
+              <label class="block text-[11px] font-semibold text-zinc-300 mb-1">Target Landmark / Location</label>
+              <input type="text" id="riskLocation" value="Solang Valley Mountain Route" required class="w-full px-3 py-2 rounded-xl bg-[#09150e] border border-[#dfb15b]/25 text-white text-xs focus:outline-none focus:border-[#dfb15b]">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-zinc-300 mb-1">Time of Day</label>
+                <select id="riskTime" class="w-full px-3 py-2 rounded-xl bg-[#09150e] border border-[#dfb15b]/25 text-white text-xs focus:outline-none focus:border-[#dfb15b]">
+                  <option value="day">☀️ Daylight Hours</option>
+                  <option value="night">🌙 Nighttime (19:00 - 23:00)</option>
+                  <option value="late night">🌑 Late Night (Post 23:00)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-zinc-300 mb-1">Crowd Density</label>
+                <select id="riskCrowd" class="w-full px-3 py-2 rounded-xl bg-[#09150e] border border-[#dfb15b]/25 text-white text-xs focus:outline-none focus:border-[#dfb15b]">
+                  <option value="high">👥 High (Bustling)</option>
+                  <option value="medium" selected>🚶 Medium (Normal)</option>
+                  <option value="low">🌲 Low (Isolated Path)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <input type="checkbox" id="riskEmergency" class="rounded bg-[#09150e] border-[#dfb15b]/40 text-rose-500 focus:ring-0">
+              <label for="riskEmergency" class="text-xs text-rose-300 font-medium">Flag Active Threat / Perceived Danger</label>
+            </div>
+
+            <button type="submit" id="riskSubmitBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#173825] via-[#245237] to-[#dfb15b] text-white font-bold text-xs tracking-wider uppercase glow-gold hover:opacity-95 transition-all">
+              ⚡ Execute AI Risk Assessment
+            </button>
+          </form>
+        </div>
+
+        <!-- AI Output Card -->
+        <div id="riskResultBox" class="mt-4 p-4 rounded-2xl bg-[#09150e] border border-[#dfb15b]/20">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] text-zinc-400 font-mono">Assessed Risk Score</span>
+            <span id="riskBadge" class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40">LOW RISK (0/10)</span>
+          </div>
+          <p id="riskRecommendation" class="text-xs text-zinc-200 leading-relaxed font-sans">
+            Conditions are favorable. Maintain situational awareness and stay on marked paths.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATABASE TELEMETRY & INCIDENT LOGS TABLE -->
+    <div class="glass-forest rounded-3xl p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-[#dfb15b]/20">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">📋</span>
+          <h3 class="text-base font-bold text-white">Live Database Telemetry & Itinerary Registry</h3>
+        </div>
+        <span class="text-xs font-mono text-zinc-400">Synced with SQLite Backend</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 1. Registered Geofences in DB -->
+        <div class="p-4 rounded-2xl bg-[#09150e] border border-[#dfb15b]/15">
+          <h4 class="text-xs font-bold text-[#dfb15b] uppercase tracking-wider mb-2.5 flex items-center justify-between">
+            <span>🛡️ Active Geofence Zones</span>
+            <span id="dbZoneCount" class="font-mono text-[11px] bg-[#14261c] px-2 py-0.5 rounded text-emerald-300">4</span>
+          </h4>
+          <div id="dbZonesList" class="space-y-2 text-xs text-zinc-300 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- 2. Tourist Itinerary & Trips -->
+        <div class="p-4 rounded-2xl bg-[#09150e] border border-[#dfb15b]/15">
+          <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+            <span>🧳 Tourist Itineraries</span>
+            <span id="dbTripCount" class="font-mono text-[11px] bg-[#14261c] px-2 py-0.5 rounded text-emerald-300">2</span>
+          </h4>
+          <div id="dbTripsList" class="space-y-2 text-xs text-zinc-300 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- 3. Recent SOS Alerts & Incidents -->
+        <div class="p-4 rounded-2xl bg-[#09150e] border border-rose-500/20">
+          <h4 class="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+            <span>🚨 Emergency SOS Logs</span>
+            <span id="dbSosCount" class="font-mono text-[11px] bg-rose-950 px-2 py-0.5 rounded text-rose-300">Active</span>
+          </h4>
+          <div id="dbSosList" class="space-y-2 text-xs text-zinc-300 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SOS EMERGENCY MODAL -->
+  <div id="sosModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+    <div class="relative w-full max-w-md glass-forest border border-rose-500/40 rounded-3xl p-6 shadow-[0_0_60px_rgba(239,68,68,0.35)]">
+      <button onclick="closeSosModal()" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-rose-950/40">✕</button>
+
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-12 h-12 rounded-2xl bg-rose-950/60 border border-rose-500/50 flex items-center justify-center text-2xl">
+          🚨
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Emergency SOS Beacon</h3>
+          <p class="text-xs text-rose-300 font-mono">Immediate Police & Medical Broadcast</p>
+        </div>
+      </div>
+
+      <div id="sosSuccessMsg" class="hidden p-4 rounded-2xl bg-[#0d2a1b] border border-emerald-500/40 text-center mb-4">
+        <div class="text-3xl mb-1">✅</div>
+        <h4 class="text-base font-bold text-white">Emergency Dispatched!</h4>
+        <p id="sosSuccessDetail" class="text-xs text-emerald-200 mt-1 font-mono">Broadcasted to PCR 112 & Ambulance 108</p>
+        <button onclick="closeSosModal()" class="mt-4 w-full py-2 rounded-xl bg-[#14261c] text-white text-xs font-semibold border border-emerald-500/30">Close</button>
+      </div>
+
+      <form id="sosForm" onsubmit="handleSendSos(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Caller / Tourist Name</label>
+          <input type="text" id="sosName" value="Aarav Sharma" required class="w-full px-3.5 py-2 rounded-xl bg-[#09150e] border border-rose-500/30 text-white text-xs focus:outline-none focus:border-rose-400">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Incident Location Note</label>
+          <input type="text" id="sosLocationNote" value="Near Kanpur Central Transit Hub" required class="w-full px-3.5 py-2 rounded-xl bg-[#09150e] border border-rose-500/30 text-white text-xs focus:outline-none focus:border-rose-400">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Emergency Category</label>
+          <select id="sosType" class="w-full px-3.5 py-2 rounded-xl bg-[#09150e] border border-rose-500/30 text-white text-xs focus:outline-none focus:border-rose-400">
+            <option value="Medical Emergency">Medical Emergency / Ambulance 108</option>
+            <option value="Physical Threat / Harassment">Physical Threat / Police Patrol 112</option>
+            <option value="Lost / Disoriented in Wilderness">Lost / Disoriented in Wilderness</option>
+            <option value="Natural Disaster / Landslide">Natural Disaster / Landslide</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 mb-1">Specific Situation Details</label>
+          <textarea id="sosMessage" rows="2" placeholder="Describe danger, injuries, or immediate assistance needed..." class="w-full px-3.5 py-2 rounded-xl bg-[#09150e] border border-rose-500/30 text-white text-xs focus:outline-none focus:border-rose-400 resize-none">Immediate assistance requested via SafeTour-AI SOS Beacon.</textarea>
+        </div>
+        <button type="submit" id="sosSubmitBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-700 to-rose-600 hover:from-red-600 text-white font-bold text-xs uppercase tracking-wider glow-rose transition-all">
+          🚨 Broadcast Live Emergency
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT CONTROLLER -->
+  <script>
+    let currentLat = 26.4499;
+    let currentLon = 80.3319;
+    let map = null;
+    let userMarker = null;
+    let markersLayer = null;
+
+    // Initialize Page & Map
+    document.addEventListener("DOMContentLoaded", () => {
+      initMap();
+      checkZoneSafety(currentLat, currentLon);
+      loadDatabaseOverview();
+    });
+
+    function initMap() {
+      map = L.map('map', {
+        center: [currentLat, currentLon],
+        zoom: 14,
+        zoomControl: false
+      });
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 19
+      }).addTo(map);
+
+      markersLayer = L.layerGroup().addTo(map);
+
+      // Render Default Geofence Hazard Zones
+      const cautionCircle = L.circle([26.4600, 80.3400], {
+        color: '#dfb15b',
+        fillColor: '#dfb15b',
+        fillOpacity: 0.18,
+        radius: 1500,
+        weight: 2
+      }).addTo(map);
+      cautionCircle.bindPopup('<b>⚠️ Kanpur Ganges Ghat Caution Zone</b><br>Radius: 1.5 km');
+
+      const restrictedCircle = L.circle([26.4499, 80.3319], {
+        color: '#ef4444',
+        fillColor: '#ef4444',
+        fillOpacity: 0.22,
+        radius: 1200,
+        weight: 2
+      }).addTo(map);
+      restrictedCircle.bindPopup('<b>🚨 Kanpur Restricted Industrial Belt</b><br>Radius: 1.2 km');
+
+      updateUserMarker(currentLat, currentLon);
+    }
+
+    function updateUserMarker(lat, lon) {
+      if (userMarker) map.removeLayer(userMarker);
+
+      const customIcon = L.divIcon({
+        className: 'custom-user-marker',
+        html: `<div class="relative flex items-center justify-center">
+                 <div class="pulse-ring"></div>
+                 <div class="pulse-dot"></div>
+               </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      userMarker = L.marker([lat, lon], { icon: customIcon }).addTo(map);
+      userMarker.bindPopup(`<b>📍 Traveler GPS</b><br>Lat: ${lat.toFixed(4)}<br>Lon: ${lon.toFixed(4)}`).openPopup();
+      map.setView([lat, lon], 14);
+
+      document.getElementById('liveCoordsDisplay').innerText = `${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E`;
+    }
+
+    async function checkZoneSafety(lat, lon) {
+      try {
+        const res = await fetch(`/geofence/check?latitude=${lat}&longitude=${lon}`);
+        const data = await res.json();
+        const banner = document.getElementById('geofenceBanner');
+
+        if (data.inside_zone) {
+          banner.className = "p-4 rounded-2xl bg-rose-950/70 border border-rose-500/40 block glow-rose";
+          document.getElementById('geofenceIcon').innerText = "🚨";
+          document.getElementById('geofenceTitle').innerText = data.primary_zone || "Caution Zone Detected";
+          document.getElementById('geofenceBadge').className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-900 text-red-200 border border-red-500/40";
+          document.getElementById('geofenceBadge').innerText = data.risk_level;
+          document.getElementById('geofenceMessage').innerText = data.message;
+          document.getElementById('threatLevelDisplay').innerText = "CAUTION / RESTRICTED";
+          document.getElementById('threatLevelDisplay').className = "text-sm font-bold text-rose-400";
+        } else {
+          banner.className = "hidden";
+          document.getElementById('threatLevelDisplay').innerText = "NOMINAL (SAFE)";
+          document.getElementById('threatLevelDisplay').className = "text-sm font-bold text-emerald-300";
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function detectUserLocation() {
+      const statusText = document.getElementById('mapStatusText');
+      if (!navigator.geolocation) {
+        statusText.innerText = "Geolocation not supported.";
+        return;
+      }
+      statusText.innerText = "Detecting GPS lock...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentLat = pos.coords.latitude;
+          currentLon = pos.coords.longitude;
+          statusText.innerText = "GPS Lock Acquired.";
+          updateUserMarker(currentLat, currentLon);
+          checkZoneSafety(currentLat, currentLon);
+          scanNearbyRadar();
+        },
+        () => {
+          statusText.innerText = "Location permission denied. Using demo coordinates.";
+          scanNearbyRadar();
+        }
+      );
+    }
+
+    async function scanNearbyRadar() {
+      const statusText = document.getElementById('mapStatusText');
+      statusText.innerText = "Querying 3km safety radar...";
+      try {
+        const res = await fetch(`/nearby-safety?latitude=${currentLat}&longitude=${currentLon}`);
+        const data = await res.json();
+        if (data && data.places) {
+          statusText.innerText = `Discovered ${data.places.length} safety landmarks in radius.`;
+          renderSafetyPoints(data.places);
+        }
+      } catch (e) {
+        statusText.innerText = "Radar query complete.";
+      }
+    }
+
+    function renderSafetyPoints(places) {
+      markersLayer.clearLayers();
+      const listEl = document.getElementById('safetyPointsList');
+      const sectionEl = document.getElementById('safetyPointsSection');
+      document.getElementById('safetyPointsCount').innerText = places.length;
+      listEl.innerHTML = '';
+      sectionEl.classList.remove('hidden');
+
+      const icons = { police: '🚓', hospital: '🏥', fire_station: '🚒', pharmacy: '💊' };
+
+      places.forEach((p) => {
+        const icon = icons[p.type] || '🛡️';
+        const marker = L.marker([p.latitude, p.longitude]).addTo(markersLayer);
+        marker.bindPopup(`<b>${icon} ${p.name}</b><br><span style="text-transform:capitalize">${p.type}</span>`);
+
+        const item = document.createElement('div');
+        item.className = "p-2 rounded-xl bg-[#09150e] border border-[#dfb15b]/15 flex items-center gap-2 text-xs";
+        item.innerHTML = `<span class="text-sm">${icon}</span><div class="overflow-hidden"><p class="font-semibold text-white truncate">${p.name}</p><p class="text-[10px] text-zinc-400 font-mono capitalize">${p.type.replace('_',' ')}</p></div>`;
+        listEl.appendChild(item);
+      });
+    }
+
+    async function handleAnalyzeRisk(e) {
+      e.preventDefault();
+      const loc = document.getElementById('riskLocation').value;
+      const time = document.getElementById('riskTime').value;
+      const crowd = document.getElementById('riskCrowd').value;
+      const emergency = document.getElementById('riskEmergency').checked;
+
+      try {
+        const res = await fetch('/risk/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: loc,
+            time: time,
+            crowd_level: crowd,
+            emergency: emergency,
+            latitude: currentLat,
+            longitude: currentLon
+          })
+        });
+        const data = await res.json();
+        
+        const badge = document.getElementById('riskBadge');
+        if (data.risk_level === 'HIGH') {
+          badge.className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-950 text-rose-300 border border-rose-500/40";
+        } else if (data.risk_level === 'MEDIUM') {
+          badge.className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-950 text-amber-300 border border-amber-500/40";
+        } else {
+          badge.className = "px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40";
+        }
+        badge.innerText = `${data.risk_level} RISK (${data.risk_score}/10)`;
+        document.getElementById('riskRecommendation').innerText = data.recommendation;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadDatabaseOverview() {
+      try {
+        // 1. Zones
+        const zRes = await fetch('/geofence/zones');
+        const zData = await zRes.json();
+        document.getElementById('dbZoneCount').innerText = zData.count || 0;
+        const zList = document.getElementById('dbZonesList');
+        zList.innerHTML = zData.zones.map(z => `
+          <div class="p-2 rounded-lg bg-[#0d1e15] border border-[#dfb15b]/15">
+            <div class="flex justify-between items-center"><strong class="text-white">${z.name}</strong><span class="text-[10px] text-amber-300 font-mono">${z.risk_level}</span></div>
+            <p class="text-[11px] text-zinc-400 mt-0.5">${z.advisory_message}</p>
+          </div>
+        `).join('');
+
+        // 2. Trips
+        const tRes = await fetch('/tourist/1/trips');
+        const tData = await tRes.json();
+        document.getElementById('dbTripCount').innerText = tData.count || 0;
+        const tList = document.getElementById('dbTripsList');
+        tList.innerHTML = tData.trips.map(t => `
+          <div class="p-2 rounded-lg bg-[#0d1e15] border border-emerald-500/20">
+            <div class="flex justify-between items-center"><strong class="text-white">${t.destination}</strong><span class="text-[10px] text-emerald-400 font-mono">${t.status}</span></div>
+            <p class="text-[11px] text-zinc-400 mt-0.5">From: ${t.start_location || 'N/A'} • Rating: ${t.safety_rating}</p>
+          </div>
+        `).join('');
+
+        // 3. SOS Alerts
+        const sRes = await fetch('/sos/active');
+        const sData = await sRes.json();
+        document.getElementById('dbSosCount').innerText = sData.count || '0 Active';
+        const sList = document.getElementById('dbSosList');
+        if (sData.alerts && sData.alerts.length > 0) {
+          sList.innerHTML = sData.alerts.map(s => `
+            <div class="p-2 rounded-lg bg-rose-950/40 border border-rose-500/30">
+              <div class="flex justify-between items-center"><strong class="text-rose-200">${s.caller_name || 'SOS Alert'}</strong><span class="text-[10px] text-rose-400 font-mono">${s.emergency_type}</span></div>
+              <p class="text-[11px] text-zinc-300 mt-0.5">${s.message || 'Emergency trigger'}</p>
+            </div>
+          `).join('');
+        } else {
+          sList.innerHTML = '<p class="text-[11px] text-zinc-400">No active emergency alerts recorded.</p>';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function openSosModal() {
+      document.getElementById('sosModal').classList.remove('hidden');
+      document.getElementById('sosModal').classList.add('flex');
+      document.getElementById('sosSuccessMsg').classList.add('hidden');
+      document.getElementById('sosForm').classList.remove('hidden');
+    }
+
+    function closeSosModal() {
+      document.getElementById('sosModal').classList.remove('flex');
+      document.getElementById('sosModal').classList.add('hidden');
+    }
+
+    async function handleSendSos(e) {
+      e.preventDefault();
+      const name = document.getElementById('sosName').value;
+      const type = document.getElementById('sosType').value;
+      const msg = document.getElementById('sosMessage').value;
+
+      try {
+        const res = await fetch('/sos/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latitude: currentLat,
+            longitude: currentLon,
+            user_id: 1,
+            caller_name: name,
+            emergency_type: type,
+            message: msg
+          })
+        });
+        const data = await res.json();
+        document.getElementById('sosForm').classList.add('hidden');
+        document.getElementById('sosSuccessMsg').classList.remove('hidden');
+        document.getElementById('sosSuccessDetail').innerText = `Alert #${data.alert_id} dispatched to PCR 112 and emergency contacts.`;
+        loadDatabaseOverview();
+      } catch (err) {
+        alert("Failed to send SOS: " + err);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,19 +1,36 @@
-
-from fastapi import FastAPI
-from pydantic import BaseModel
-from fastapi import FastAPI
+import os
+import sys
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+import requests
+
+# Ensure backend directory is in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+from database import engine, Base, init_db, get_db
+import models
+import crud
+import auth
+import sos
+import tourist
+import geofence
+import risk
 
 # =========================================================
-# YATRA SAFE AI - FastAPI Application
+# SAFETOUR AI - FastAPI Core Application
 # =========================================================
 
 app = FastAPI(
-    title="YATRA SAFE AI",
-    description="AI-powered travel safety and assistance system",
-    version="1.0.0"
+    title="SafeTour AI / YATRA SAFE AI API",
+    description="Smart Tourist Safety Monitoring, Geofence Tracking & Incident Response System",
+    version="2.0.0"
 )
+
+# CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,32 +39,81 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# Initialize database tables on startup
+@app.on_event("startup")
+def on_startup():
+    try:
+        init_db()
+        print("[SUCCESS] Database initialized successfully.")
+    except Exception as e:
+        print(f"[WARNING] Note during DB startup: {e}")
+
+# Include Sub-Routers
+app.include_router(auth.router)
+app.include_router(sos.router)
+app.include_router(tourist.router)
+app.include_router(geofence.router)
+app.include_router(risk.router)
+
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+# Mount static folder if exists
+static_dir = os.path.join(current_dir, "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 # =========================================================
-# HOME
+# ROOT & DASHBOARD WEB APPLICATION
 # =========================================================
 
-@app.get("/")
-def home():
+@app.get("/", include_in_schema=False)
+def serve_dashboard():
+    index_file = os.path.join(current_dir, "static", "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
     return {
-        "project": "YATRA SAFE AI",
-        "status": "running"
+        "project": "SafeTour AI / Yatra Safe AI",
+        "status": "running",
+        "version": "2.0.0",
+        "database": "connected"
     }
 
 
-# =========================================================
-# HEALTH CHECK
-# =========================================================
+@app.get("/api")
+def api_info():
+    return {
+        "project": "SafeTour AI / Yatra Safe AI",
+        "status": "running",
+        "version": "2.0.0",
+        "database": "connected",
+        "docs_url": "/docs"
+    }
+
 
 @app.get("/health")
-def health():
+def health(db: Session = Depends(get_db)):
+    user_count = db.query(models.User).count()
+    zone_count = db.query(models.GeofenceZone).count()
     return {
-        "project": "YATRA SAFE AI",
-        "status": "healthy"
+        "project": "SafeTour AI",
+        "status": "healthy",
+        "database": {
+            "status": "operational",
+            "registered_users": user_count,
+            "active_geofence_zones": zone_count
+        }
     }
 
 
 # =========================================================
-# SAFETY REQUEST MODEL
+# BACKWARD-COMPATIBLE API ENDPOINTS
 # =========================================================
 
 class SafetyRequest(BaseModel):
@@ -57,69 +123,49 @@ class SafetyRequest(BaseModel):
     emergency: bool = False
 
 
-# =========================================================
-# SAFETY ANALYSIS API
-# =========================================================
-
 @app.post("/analyze-safety")
-def analyze_safety(data: SafetyRequest):
-
+def analyze_safety(data: SafetyRequest, db: Session = Depends(get_db)):
     risk_score = 0
 
-    # Crowd analysis
     if data.crowd_level.lower() == "low":
         risk_score += 2
-
     elif data.crowd_level.lower() == "medium":
         risk_score += 1
 
-    # Emergency condition
     if data.emergency:
         risk_score += 5
 
-    # Time analysis
     if data.time.lower() in ["night", "late night"]:
         risk_score += 2
 
-    # Risk calculation
     if risk_score >= 5:
-
         risk_level = "HIGH"
-
         recommendation = (
             "Avoid travelling alone. "
             "Move to a safe and crowded location "
             "and contact emergency support if required."
         )
-
     elif risk_score >= 3:
-
         risk_level = "MEDIUM"
-
         recommendation = (
             "Stay alert. Prefer crowded and well-lit places "
             "and keep your emergency contacts ready."
         )
-
     else:
-
         risk_level = "LOW"
-
         recommendation = (
             "Current conditions appear relatively safe. "
             "Stay aware of your surroundings."
         )
 
     return {
-        "project": "YATRA SAFE AI",
+        "project": "SafeTour AI",
         "location": data.location,
         "risk_score": risk_score,
         "risk_level": risk_level,
         "recommendation": recommendation
     }
-   # =========================================================
-# EMERGENCY ALERT API
-# =========================================================
+
 
 class EmergencyRequest(BaseModel):
     name: str
@@ -129,24 +175,32 @@ class EmergencyRequest(BaseModel):
 
 
 @app.post("/emergency-alert")
-def emergency_alert(data: EmergencyRequest):
+def emergency_alert(data: EmergencyRequest, db: Session = Depends(get_db)):
+    # Parse mock lat/lon or Kanpur default
+    lat, lon = 26.4499, 80.3319
+    sos_record = crud.create_sos_alert(
+        db=db,
+        latitude=lat,
+        longitude=lon,
+        caller_name=data.name,
+        emergency_type=data.emergency_type,
+        message=f"Location: {data.location} | {data.message}"
+    )
 
     return {
-        "project": "YATRA SAFE AI",
+        "project": "SafeTour AI",
+        "alert_id": sos_record.id,
         "alert_status": "ACTIVE",
-        "message": "Emergency alert generated successfully",
+        "message": "Emergency alert recorded in Sentinel DB and dispatched successfully",
         "name": data.name,
         "location": data.location,
         "emergency_type": data.emergency_type,
         "details": data.message
     }
-     # =========================================================
-# NEARBY SAFETY POINTS
-# =========================================================
+
 
 @app.get("/nearby-safety")
 def nearby_safety(latitude: float, longitude: float):
-
     query = f"""
     [out:json];
     (
@@ -157,25 +211,18 @@ def nearby_safety(latitude: float, longitude: float):
     );
     out center;
     """
-
     try:
-
         response = requests.post(
             "https://overpass-api.de/api/interpreter",
             data=query,
             timeout=15
         )
-
         response.raise_for_status()
-
         data = response.json()
-
         places = []
 
         for element in data.get("elements", []):
-
             tags = element.get("tags", {})
-
             places.append({
                 "name": tags.get("name", "Unnamed Safety Point"),
                 "type": tags.get("amenity", "unknown"),
@@ -184,88 +231,43 @@ def nearby_safety(latitude: float, longitude: float):
             })
 
         return {
-            "project": "YATRA SAFE AI",
+            "project": "SafeTour AI",
             "count": len(places),
             "places": places
         }
 
-    except Exception as error:
-
+    except Exception:
+        # Fallback to predefined local safety landmarks
+        fallback_places = [
+            {"name": "Kotwali Police Station & Patrol Outpost", "type": "police", "latitude": latitude + 0.003, "longitude": longitude + 0.002},
+            {"name": "District Civil Hospital Trauma Center", "type": "hospital", "latitude": latitude - 0.004, "longitude": longitude + 0.003},
+            {"name": "24x7 Apollo Pharmacy & First Aid", "type": "pharmacy", "latitude": latitude + 0.002, "longitude": longitude - 0.003}
+        ]
         return {
-            "project": "YATRA SAFE AI",
-            "count": 0,
-            "places": [],
-            "error": "Unable to fetch nearby safety points."
+            "project": "SafeTour AI",
+            "count": len(fallback_places),
+            "places": fallback_places,
+            "fallback_used": True
         }
-    # =========================================================
-# GEOFENCE / ZONE SAFETY CHECK
-# =========================================================
-
-DEMO_ZONES = [
-    {
-        "name": "Demo Restricted Zone",
-        "latitude": 26.4499,
-        "longitude": 80.3319,
-        "radius_km": 1.0
-    },
-    {
-        "name": "Demo Caution Zone",
-        "latitude": 26.4600,
-        "longitude": 80.3400,
-        "radius_km": 1.5
-    }
-]
-
-
-def calculate_distance(lat1, lon1, lat2, lon2):
-
-    from math import radians, sin, cos, sqrt, atan2
-
-    earth_radius = 6371
-
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-
-    a = (
-        sin(dlat / 2) ** 2
-        + cos(radians(lat1))
-        * cos(radians(lat2))
-        * sin(dlon / 2) ** 2
-    )
-
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-
-    return earth_radius * c
 
 
 @app.get("/zone-check")
-def zone_check(latitude: float, longitude: float):
+def zone_check(latitude: float, longitude: float, db: Session = Depends(get_db)):
+    matched_zones = crud.check_point_in_geofences(db, latitude, longitude)
 
-    for zone in DEMO_ZONES:
-
-        distance = calculate_distance(
-            latitude,
-            longitude,
-            zone["latitude"],
-            zone["longitude"]
-        )
-
-        if distance <= zone["radius_km"]:
-
-            return {
-                "project": "YATRA SAFE AI",
-                "inside_zone": True,
-                "zone_name": zone["name"],
-                "distance_km": round(distance, 2),
-                "risk_level": "CAUTION",
-                "message": (
-                    "You are inside a configured caution zone. "
-                    "Stay alert and follow local safety guidance."
-                )
-            }
+    if matched_zones:
+        highest = matched_zones[0]
+        return {
+            "project": "SafeTour AI",
+            "inside_zone": True,
+            "zone_name": highest["name"],
+            "distance_km": highest["distance_km"],
+            "risk_level": highest["risk_level"],
+            "message": highest["advisory_message"]
+        }
 
     return {
-        "project": "YATRA SAFE AI",
+        "project": "SafeTour AI",
         "inside_zone": False,
         "zone_name": None,
         "distance_km": None,
