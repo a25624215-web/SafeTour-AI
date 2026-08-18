@@ -1,10 +1,9 @@
-
-from fastapi import FastAPI
-from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import requests
 
+from database import init_database
 # =========================================================
 # YATRA SAFE AI - FastAPI Application
 # =========================================================
@@ -14,6 +13,13 @@ app = FastAPI(
     description="AI-powered travel safety and assistance system",
     version="1.0.0"
 )
+# =========================================================
+# DATABASE INITIALIZATION
+# =========================================================
+
+@app.on_event("startup")
+def startup_event():
+    init_database()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
