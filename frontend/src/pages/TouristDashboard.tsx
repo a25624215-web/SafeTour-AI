@@ -22,6 +22,12 @@ export const TouristDashboard: React.FC = () => {
     lon: 80.3319,
   });
 
+  // Read actual logged-in user name from localStorage
+  const userName = localStorage.getItem('user_name') || 'Tourist';
+  const userEmail = localStorage.getItem('user_email') || '';
+  // Generate pass ID from email initials
+  const passId = userEmail ? 'SY-2026-' + userEmail.substring(0, 3).toUpperCase() : 'SY-2026';
+
   const handleLocationUpdate = (lat: number, lon: number) => {
     setCurrentCoords({ lat, lon });
   };
@@ -63,8 +69,8 @@ export const TouristDashboard: React.FC = () => {
               </div>
               <div className="overflow-hidden">
                 <p className="text-xs text-sandstone-dark font-mono">Tourist Identity</p>
-                <h3 className="text-sm font-bold text-[#fffdfa] truncate">Aarav Sharma</h3>
-                <span className="text-[10px] text-[#dfb15b] font-mono">Pass: SY-2026-ALP</span>
+                <h3 className="text-sm font-bold text-[#fffdfa] truncate">{userName}</h3>
+                <span className="text-[10px] text-[#dfb15b] font-mono">Pass: {passId}</span>
               </div>
             </div>
           </div>

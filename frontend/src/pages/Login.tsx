@@ -10,6 +10,10 @@ export const Login: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    // Save user info to localStorage so dashboard can show real name
+    const username = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    localStorage.setItem('user_email', email);
+    localStorage.setItem('user_name', username);
     navigate('/dashboard');
   };
 
