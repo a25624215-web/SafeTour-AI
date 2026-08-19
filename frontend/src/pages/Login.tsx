@@ -74,6 +74,15 @@ export const Login: React.FC = () => {
               <span>Access Command Center</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            <div className="mt-3.5 text-center">
+              <a
+                href="/SafeTour-AI/authority-login.html"
+                className="text-xs text-sandstone-dark/80 hover:text-[#dfb15b] font-mono tracking-wider transition-colors uppercase"
+              >
+                Login as Authority
+              </a>
+            </div>
           </form>
 
           <div className="mt-6 text-center text-xs text-sandstone-dark">
