@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safe-Yatra AI — Authority Command Center</title>
+  <meta name="description" content="Safe-Yatra AI Authority Command Center - Real-time tourist safety monitoring, incident response, and emergency management dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Interactive Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <link rel="stylesheet" href="authority.css">
+</head>
+<body class="authority-body">
+
+  <!-- INTRODUCTORY LOADING SCREEN (Competition-ready Loading Experience) -->
+  <div id="intro-screen" class="intro-screen">
+    <div class="intro-bg-gradient"></div>
+    <div class="intro-backlight"></div>
+    
+    <!-- parting mountain SVG silhouettes -->
+    <div class="intro-mountains-left" id="intro-mount-left">
+      <svg class="w-full h-full text-[#0a1811]" viewBox="0 0 1440 400" fill="none" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+        <path d="M0 400 L0 260 L240 180 L480 280 L720 140 L960 250 L1200 160 L1440 240 L1440 400 Z" fill="#08120d" opacity="0.5"/>
+        <path d="M0 260 L240 180 L480 280 L720 140 L960 250 L1200 160 L1440 240" stroke="#dfb15b" stroke-width="1.2" stroke-opacity="0.25" fill="none"/>
+      </svg>
+    </div>
+    <div class="intro-mountains-right" id="intro-mount-right">
+      <svg class="w-full h-full text-[#0d2217]" viewBox="0 0 1440 350" fill="none" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+        <path d="M0 350 L0 220 L320 120 L640 230 L900 100 L1200 210 L1440 130 L1440 350 Z" fill="#0c1d14"/>
+        <path d="M0 220 L320 120 L640 230 L900 100 L1200 210 L1440 130" stroke="#34d399" stroke-width="1.5" stroke-opacity="0.3" fill="none"/>
+      </svg>
+    </div>
+
+    <div class="intro-content">
+      <h1 class="intro-title gold-gradient-text">Safe-Yatra AI</h1>
+      <p class="intro-subtitle">AUTHORITY COMMAND CENTER</p>
+      <div class="intro-progress-bar">
+        <div class="intro-progress-fill" id="intro-progress-fill"></div>
+      </div>
+      <p class="intro-status font-mono" id="intro-status-text">INITIALIZING THREAT RADAR GRAPH...</p>
+    </div>
+  </div>
+
+  <div class="app-layout">
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-logo">
+        <div class="logo-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title" style="font-family: var(--font-heading);">Safe-Yatra <span class="logo-accent">AI</span></span>
+          <span class="logo-subtitle">AUTHORITY CONTROL</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-section="dashboard">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </span>
+          <span class="nav-text">Dashboard</span>
+        </a>
+        <a href="#tourist-section" class="nav-item" data-section="tourists">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <span class="nav-text">Tourist Monitoring</span>
+        </a>
+        <a href="#incidents-section" class="nav-item" data-section="incidents">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </span>
+          <span class="nav-text">Incidents</span>
+        </a>
+        <a href="sos.html" class="nav-item" data-section="sos">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
+          <span class="nav-text">SOS Alerts</span>
+          <span class="nav-badge" id="sos-badge">03</span>
+        </a>
+        <a href="#map-section" class="nav-item" data-section="map">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          </span>
+          <span class="nav-text">Safety Map</span>
+        </a>
+        <a href="#" class="nav-item" data-section="reports">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          </span>
+          <span class="nav-text">Reports</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-info">
+          <div class="footer-dot"></div>
+          <span>System Operational</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="main-content" role="main" style="position: relative;">
+
+      <!-- Airplane Flight SVG Animation (Matches User Portal Sky Element) -->
+      <div class="airplane-bg-container">
+        <svg class="airplane-svg" viewBox="0 0 1440 400" fill="none" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <path id="dashboardFlightPath" d="M -100,280 C 300,220 700,160 1100,100 C 1300,75 1500,50 1600,30" />
+            <linearGradient id="dashboardContrail" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ede7dc" stop-opacity="0" />
+              <stop offset="60%" stop-color="#ede7dc" stop-opacity="0.08" />
+              <stop offset="95%" stop-color="#ffffff" stop-opacity="0.25" />
+            </linearGradient>
+          </defs>
+          <g>
+            <animateMotion dur="24s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#dashboardFlightPath" />
+            </animateMotion>
+            <animate attributeName="opacity" values="0;0.9;0.9;0.2;0" keyTimes="0;0.08;0.85;0.96;1" dur="24s" repeatCount="indefinite" />
+            <line x1="-70" y1="0" x2="-10" y2="0" stroke="url(#dashboardContrail)" stroke-width="1.8" filter="blur(1px)" />
+            <g transform="scale(0.7)">
+              <path d="M 18,0 L 4,-3 L -4,-18 L -9,-18 L -4,-3 L -22,-3 L -27,-9 L -31,-9 L -28,0 L -31,9 L -27,9 L -22,3 L -4,3 L -9,18 L -4,18 L 4,3 Z" fill="#ffffff" opacity="0.85" />
+              <rect x="-8" y="-9" width="6" height="2" rx="1" fill="#dfb15b" opacity="0.8" />
+              <rect x="-8" y="7" width="6" height="2" rx="1" fill="#dfb15b" opacity="0.8" />
+              <circle cx="-6" cy="-18" r="1.5" fill="#34d399" class="strobe-light" />
+              <circle cx="-6" cy="18" r="1.5" fill="#dfb15b" class="strobe-light" />
+            </g>
+          </g>
+        </svg>
+      </div>
+
+      <!-- HEADER -->
+      <header class="header" id="header">
+        <div class="header-content">
+          <div class="header-left">
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle navigation">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="header-title-area">
+              <h1 class="header-title" style="font-family: var(--font-heading);">Safe-Yatra AI <span style="color: var(--accent-gold); font-size: 0.85rem; font-weight: normal; margin-left: 6px; font-family: var(--font-mono); letter-spacing: 0.05em;">COMMAND CENTER</span></h1>
+              <div class="system-status">
+                <span class="status-dot online"></span>
+                <span class="status-text">SECURE GATEWAY ONLINE</span>
+              </div>
+            </div>
+          </div>
+          <div class="header-right">
+            <div class="header-clock" id="header-clock"></div>
+            <div class="notification-dropdown-wrapper">
+              <button class="header-action-btn" id="notification-btn" aria-label="Notifications">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                <span class="notification-badge" id="notification-badge">3</span>
+              </button>
+              <div class="notification-dropdown" id="notification-dropdown">
+                <div class="notification-dropdown-header">
+                  <span>Notifications</span>
+                  <button class="mark-all-read-btn" id="mark-all-read-btn">Mark all read</button>
+                </div>
+                <div class="notification-dropdown-body" id="notification-dropdown-body">
+                  <!-- Rendered dynamically by authority.js -->
+                </div>
+              </div>
+            </div>
+            <div class="profile-dropdown-wrapper">
+              <div class="header-profile" id="profile-btn" aria-haspopup="true">
+                <div class="profile-avatar">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="profile-info">
+                  <span class="profile-name">Authority Admin</span>
+                  <span class="profile-role">Control Center</span>
+                </div>
+              </div>
+              <div class="profile-dropdown" id="profile-dropdown">
+                <a href="#" class="profile-dropdown-item" id="logout-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <span>Logout</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT AREA -->
+      <div class="content-area">
+
+        <!-- STATISTICS -->
+        <section class="stats-grid animate-fade-in" id="stats-section" aria-label="Dashboard Statistics">
+          <div class="stat-card" id="stat-total">
+            <div class="stat-icon" style="background: rgba(0, 212, 255, 0.1); color: #00d4ff;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-total-value">0</span>
+              <span class="stat-label">Total Tourists</span>
+              <span class="stat-sublabel">Tourists monitored</span>
+            </div>
+          </div>
+
+          <div class="stat-card" id="stat-active">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-active-value">0</span>
+              <span class="stat-label">Active Tourists</span>
+              <span class="stat-sublabel">Currently active</span>
+            </div>
+          </div>
+
+          <div class="stat-card" id="stat-highrisk">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-highrisk-value">0</span>
+              <span class="stat-label">High-Risk Tourists</span>
+              <span class="stat-sublabel">Requires attention</span>
+            </div>
+          </div>
+
+          <div class="stat-card danger" id="stat-sos">
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-sos-value">0</span>
+              <span class="stat-label">Active SOS</span>
+              <span class="stat-sublabel">Immediate response required</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- SAFETY SCORE + MAP ROW -->
+        <section class="dashboard-row animate-fade-in delay-1">
+          <!-- Safety Score Panel -->
+          <div class="glass-panel safety-score-panel" id="safety-score-section">
+            <div class="section-header">
+              <h2 class="section-title">Overall Safety Score</h2>
+              <span class="section-badge">LIVE</span>
+            </div>
+            <div class="score-ring-container">
+              <svg class="score-ring" viewBox="0 0 200 200" id="score-ring">
+                <circle class="score-ring-bg" cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="12"/>
+                <circle class="score-ring-progress" id="score-ring-progress" cx="100" cy="100" r="85" fill="none" stroke="url(#scoreGradient)" stroke-width="12" stroke-linecap="round" stroke-dasharray="534" stroke-dashoffset="534" transform="rotate(-90 100 100)"/>
+                <defs>
+                  <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#00d4ff"/>
+                    <stop offset="50%" stop-color="#10b981"/>
+                    <stop offset="100%" stop-color="#f0c040"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="score-center">
+                <span class="score-value" id="score-value">0</span>
+                <span class="score-max">/ 100</span>
+              </div>
+            </div>
+            <div class="risk-breakdown">
+              <div class="risk-item">
+                <div class="risk-item-header">
+                  <span class="risk-dot low"></span>
+                  <span class="risk-label">Low Risk</span>
+                  <span class="risk-percent" id="risk-low-percent">0%</span>
+                </div>
+                <div class="risk-bar"><div class="risk-bar-fill low" id="risk-low-bar"></div></div>
+              </div>
+              <div class="risk-item">
+                <div class="risk-item-header">
+                  <span class="risk-dot medium"></span>
+                  <span class="risk-label">Medium Risk</span>
+                  <span class="risk-percent" id="risk-medium-percent">0%</span>
+                </div>
+                <div class="risk-bar"><div class="risk-bar-fill medium" id="risk-medium-bar"></div></div>
+              </div>
+              <div class="risk-item">
+                <div class="risk-item-header">
+                  <span class="risk-dot high"></span>
+                  <span class="risk-label">High Risk</span>
+                  <span class="risk-percent" id="risk-high-percent">0%</span>
+                </div>
+                <div class="risk-bar"><div class="risk-bar-fill high" id="risk-high-bar"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Map Panel -->
+          <div class="glass-panel map-panel" id="map-section">
+            <div class="section-header">
+              <h2 class="section-title">Live Tourist Location</h2>
+              <div class="map-controls">
+                <button class="map-control-btn" id="map-zoom-in" aria-label="Zoom in">+</button>
+                <button class="map-control-btn" id="map-zoom-out" aria-label="Zoom out">−</button>
+              </div>
+            </div>
+            <div class="map-container" id="map-container">
+              <!-- Map rendered by JavaScript -->
+            </div>
+            <div class="map-legend">
+              <div class="legend-item"><span class="legend-dot low"></span> Low Risk</div>
+              <div class="legend-item"><span class="legend-dot medium"></span> Medium Risk</div>
+              <div class="legend-item"><span class="legend-dot high"></span> High Risk</div>
+              <div class="legend-item"><span class="legend-dot sos"></span> SOS Active</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TOURIST MONITORING -->
+        <section class="glass-panel tourist-section animate-fade-in delay-2" id="tourist-section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Tourist Monitoring</h2>
+              <p class="section-subtitle">Real-time tourist tracking and safety assessment</p>
+            </div>
+          </div>
+
+          <div class="search-filter-bar">
+            <div class="search-wrapper">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" class="search-input" id="search-input" placeholder="Search tourist, ID, location..." aria-label="Search tourists">
+            </div>
+            <div class="filter-group">
+              <select class="filter-select" id="filter-risk" aria-label="Filter by risk level">
+                <option value="All">All Risk</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+              <select class="filter-select" id="filter-status" aria-label="Filter by status">
+                <option value="All">All Status</option>
+                <option value="Safe">Safe</option>
+                <option value="Monitoring">Monitoring</option>
+                <option value="At Risk">At Risk</option>
+                <option value="SOS">SOS</option>
+              </select>
+              <select class="filter-select" id="filter-location" aria-label="Filter by location">
+                <option value="All">All Locations</option>
+                <option value="Agra">Agra</option>
+                <option value="Delhi">Delhi</option>
+                <option value="Jaipur">Jaipur</option>
+                <option value="Varanasi">Varanasi</option>
+                <option value="Lucknow">Lucknow</option>
+                <option value="Mumbai">Mumbai</option>
+                <option value="Goa">Goa</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="tourist-table" id="tourist-table">
+              <thead>
+                <tr>
+                  <th>Tourist ID</th>
+                  <th>Name</th>
+                  <th>Location</th>
+                  <th>Safety Score</th>
+                  <th>Risk Level</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tourist-tbody">
+                <!-- Rendered by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+          <div class="table-empty" id="table-empty" style="display: none;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <p>No tourists match your search criteria</p>
+          </div>
+        </section>
+
+        <!-- RECENT INCIDENTS -->
+        <section class="glass-panel incidents-section animate-fade-in delay-3" id="incidents-section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Recent Incidents</h2>
+              <p class="section-subtitle">Active and recent safety incidents requiring attention</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="tourist-table incident-table" id="incident-table">
+              <thead>
+                <tr>
+                  <th>Incident ID</th>
+                  <th>Tourist</th>
+                  <th>Type</th>
+                  <th>Location</th>
+                  <th>Time</th>
+                  <th>Risk</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="incident-tbody">
+                <!-- Rendered by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ACTIVE SOS ALERTS -->
+        <section class="glass-panel sos-section animate-fade-in delay-4" id="sos-section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Active SOS Alerts</h2>
+              <p class="section-subtitle">Emergency alerts requiring immediate response</p>
+            </div>
+            <a href="sos.html" class="btn btn-danger btn-sm">View All SOS →</a>
+          </div>
+          <div class="sos-cards-grid" id="sos-cards-container">
+            <!-- Rendered by JavaScript -->
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== INCIDENT DETAIL MODAL ==================== -->
+  <div class="modal-overlay" id="incident-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Incident Details</h3>
+        <button class="modal-close" id="modal-close-btn" aria-label="Close modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Populated by JavaScript -->
+      </div>
+      <div class="modal-footer" id="modal-footer">
+        <!-- Action buttons populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST CONTAINER ==================== -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="authority.js"></script>
+</body>
+</html>
