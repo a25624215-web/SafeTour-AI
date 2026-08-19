@@ -1,15 +1,14 @@
-<<<<<<< ours
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List
+from sqlalchemy.orm import Session
+from database import get_db
+import crud
+import models
 
+router = APIRouter(prefix="/geofence", tags=["Geofencing & Hazard Zones"])
 
-router = APIRouter(
-    prefix="/geofence",
-    tags=["Geofencing"]
-)
-
-
-# Temporary demo zones
+# Temporary demo zones (Aapka demo data)
 geofences = [
     {
         "name": "Restricted Zone A",
@@ -27,32 +26,39 @@ geofences = [
     }
 ]
 
+# --- SCHEMAS (Data Models) ---
 
 class LocationRequest(BaseModel):
     latitude: float
     longitude: float
 
+class GeofenceZoneCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    zone_type: str = "caution"  # 'restricted', 'caution', 'safe', 'high_altitude'
+    risk_level: str = "CAUTION"  # 'LOW', 'CAUTION', 'HIGH', 'CRITICAL'
+    latitude: float
+    longitude: float
+    radius_km: float = 1.0
+    advisory_message: str
+
+
+# --- HELPER FUNCTIONS ---
 
 def is_inside_zone(latitude, longitude, zone):
-
     lat_diff = abs(latitude - zone["latitude"])
     lon_diff = abs(longitude - zone["longitude"])
-
     return lat_diff <= zone["radius"] and lon_diff <= zone["radius"]
 
 
+# --- ENDPOINTS ---
+
+# Aapka checking endpoint (In-memory storage wala)
 @router.post("/check")
 def check_geofence(location: LocationRequest):
-
     detected_zones = []
-
     for zone in geofences:
-
-        if is_inside_zone(
-            location.latitude,
-            location.longitude,
-            zone
-        ):
+        if is_inside_zone(location.latitude, location.longitude, zone):
             detected_zones.append(zone)
 
     if not detected_zones:
@@ -66,35 +72,14 @@ def check_geofence(location: LocationRequest):
         "inside_zone": True,
         "message": "Tourist has entered a monitored risk zone",
         "zones": detected_zones
-=======
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional, List
-from sqlalchemy.orm import Session
-from database import get_db
-import crud
-import models
+    }
 
-router = APIRouter(prefix="/geofence", tags=["Geofencing & Hazard Zones"])
-
-
-class GeofenceZoneCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    zone_type: str = "caution"  # 'restricted', 'caution', 'safe', 'high_altitude'
-    risk_level: str = "CAUTION"  # 'LOW', 'CAUTION', 'HIGH', 'CRITICAL'
-    latitude: float
-    longitude: float
-    radius_km: float = 1.0
-    advisory_message: str
-
-
+# Team Member ka advanced checking endpoint (Database wala)
 @router.get("/check")
 def check_location(latitude: float, longitude: float, db: Session = Depends(get_db)):
     matched_zones = crud.check_point_in_geofences(db, latitude, longitude)
 
     if matched_zones:
-        # Highest risk priority
         highest_risk = matched_zones[0]
         return {
             "inside_zone": True,
@@ -118,7 +103,6 @@ def check_location(latitude: float, longitude: float, db: Session = Depends(get_
         "message": "No hazardous or restricted caution zones detected within proximity."
     }
 
-
 @router.get("/zones")
 def list_zones(db: Session = Depends(get_db)):
     zones = crud.get_active_geofence_zones(db)
@@ -126,7 +110,6 @@ def list_zones(db: Session = Depends(get_db)):
         "count": len(zones),
         "zones": [z.to_dict() for z in zones]
     }
-
 
 @router.post("/zones")
 def create_zone(data: GeofenceZoneCreate, db: Session = Depends(get_db)):
@@ -147,5 +130,4 @@ def create_zone(data: GeofenceZoneCreate, db: Session = Depends(get_db)):
     return {
         "status": "success",
         "zone": zone.to_dict()
->>>>>>> theirs
     }

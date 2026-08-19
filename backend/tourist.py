@@ -1,53 +1,3 @@
-<<<<<<< ours
-from fastapi import APIRouter
-from pydantic import BaseModel
-
-
-router = APIRouter(
-    prefix="/tourist",
-    tags=["Tourist"]
-)
-
-
-# Temporary in-memory storage
-tourist_profiles = {}
-
-
-class TouristProfile(BaseModel):
-    email: str
-    destination: str
-    trip_duration: int
-    emergency_contact: str
-
-
-@router.post("/profile")
-def create_profile(profile: TouristProfile):
-
-    tourist_profiles[profile.email] = {
-        "email": profile.email,
-        "destination": profile.destination,
-        "trip_duration": profile.trip_duration,
-        "emergency_contact": profile.emergency_contact
-    }
-
-    return {
-        "message": "Tourist profile created successfully",
-        "profile": tourist_profiles[profile.email]
-    }
-
-
-@router.get("/profile/{email}")
-def get_profile(email: str):
-
-    profile = tourist_profiles.get(email)
-
-    if not profile:
-        return {
-            "message": "Tourist profile not found"
-        }
-
-    return profile
-=======
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -59,7 +9,17 @@ import models
 
 router = APIRouter(prefix="/tourist", tags=["Tourist Management"])
 
+# Temporary in-memory storage (Aapka variable)
+tourist_profiles = {}
 
+# Aapka Data Model
+class TouristProfile(BaseModel):
+    email: str
+    destination: str
+    trip_duration: int
+    emergency_contact: str
+
+# Team Member ka Trip Data Model
 class TripCreateRequest(BaseModel):
     destination: str
     start_location: Optional[str] = None
@@ -67,13 +27,39 @@ class TripCreateRequest(BaseModel):
     end_date: Optional[datetime.date] = None
     safety_rating: Optional[str] = "SAFE"
 
-
+# Team Member ka Telemetry Data Model
 class LocationTelemetryRequest(BaseModel):
     latitude: float
     longitude: float
     speed_kmh: Optional[float] = None
     battery_level: Optional[int] = None
 
+
+# --- AAPKE ROUTES ---
+
+@router.post("/profile")
+def create_profile(profile: TouristProfile):
+    tourist_profiles[profile.email] = {
+        "email": profile.email,
+        "destination": profile.destination,
+        "trip_duration": profile.trip_duration,
+        "emergency_contact": profile.emergency_contact
+    }
+    return {
+        "message": "Tourist profile created successfully",
+        "profile": tourist_profiles[profile.email]
+    }
+
+
+@router.get("/profile/{email}")
+def get_profile(email: str):
+    profile = tourist_profiles.get(email)
+    if not profile:
+        return {"message": "Tourist profile not found"}
+    return profile
+
+
+# --- TEAM MEMBER KE ROUTES ---
 
 @router.get("/{user_id}/trips")
 def get_trips(user_id: int, db: Session = Depends(get_db)):
@@ -141,4 +127,3 @@ def get_telemetry_history(user_id: int, limit: int = 50, db: Session = Depends(g
         "count": len(history),
         "history": [h.to_dict() for h in history]
     }
->>>>>>> theirs

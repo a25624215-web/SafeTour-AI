@@ -1,60 +1,56 @@
-<<<<<<< ours
 from datetime import datetime, timedelta, timezone
-
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
 from jose import jwt
 from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+import hashlib
+import bcrypt
+from database import get_db
+import crud
+import models
 
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["Authentication"]
-)
-
-# Demo secret — later this will move to an environment variable
+# JWT Settings
 SECRET_KEY = "CHANGE_THIS_IN_PRODUCTION"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
 
-
-# Temporary in-memory storage.
-# Later we will replace this with the real database.
-users = {}
-
-
-class RegisterRequest(BaseModel):
+# =========================================================
+# SCHEMAS (Data Models)
+# =========================================================
+class UserRegisterRequest(BaseModel):
     name: str
-    email: str
+    email: EmailStr
+    password: str
+    phone: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
     password: str
 
-
-class LoginRequest(BaseModel):
-=======
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
-from sqlalchemy.orm import Session
-import hashlib
-from database import get_db
-import crud
-import models
-
-import bcrypt
-
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+class EmergencyContactCreate(BaseModel):
+    name: str
+    phone: str
+    relationship: Optional[str] = None
+    is_primary: bool = False
 
 
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
@@ -62,105 +58,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception:
         return hashlib.sha256(plain_password.encode("utf-8")).hexdigest() == hashed_password
 
-
-# =========================================================
-# SCHEMAS
-# =========================================================
-class UserRegisterRequest(BaseModel):
-    name: str
-    email: str
-    password: str
-    phone: Optional[str] = None
-    emergency_contact_name: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
-
-
-class UserLoginRequest(BaseModel):
->>>>>>> theirs
-    email: str
-    password: str
-
-
-<<<<<<< ours
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
-
-
 def create_access_token(email: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-
-    payload = {
-        "sub": email,
-        "exp": expire
-    }
-
-    return jwt.encode(
-        payload,
-        SECRET_KEY,
-        algorithm=ALGORITHM
-    )
-
-
-@router.post("/register")
-def register(user: RegisterRequest):
-
-    if user.email in users:
-        raise HTTPException(
-            status_code=409,
-            detail="User already registered"
-        )
-
-    users[user.email] = {
-        "name": user.name,
-        "email": user.email,
-        "password_hash": hash_password(user.password)
-    }
-
-    return {
-        "message": "Registration successful",
-        "email": user.email
-    }
-
-
-@router.post("/login")
-def login(user: LoginRequest):
-
-    stored_user = users.get(user.email)
-
-    if not stored_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-
-    if not verify_password(
-        user.password,
-        stored_user["password_hash"]
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
-
-    token = create_access_token(user.email)
-
-    return {
-        "message": "Login successful",
-        "access_token": token,
-        "token_type": "bearer"
-    }
-=======
-class EmergencyContactCreate(BaseModel):
-    name: str
-    phone: str
-    relationship: Optional[str] = None
-    is_primary: bool = False
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": email, "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 # =========================================================
@@ -176,7 +77,7 @@ def register(data: UserRegisterRequest, db: Session = Depends(get_db)):
             detail="An account with this email address is already registered."
         )
 
-    # Hash password & create user
+    # Hash password & create user in DB
     hashed = hash_password(data.password)
     user = crud.create_user(
         db=db,
@@ -215,11 +116,14 @@ def login(data: UserLoginRequest, db: Session = Depends(get_db)):
             detail="Invalid email address or password."
         )
 
+    token = create_access_token(user.email)
     contacts = crud.get_emergency_contacts(db, user.id)
 
     return {
         "status": "success",
         "message": "Login successful",
+        "access_token": token,
+        "token_type": "bearer",
         "user": user.to_dict(),
         "emergency_contacts": [c.to_dict() for c in contacts]
     }
@@ -256,4 +160,3 @@ def add_contact(user_id: int, data: EmergencyContactCreate, db: Session = Depend
         "status": "success",
         "contact": contact.to_dict()
     }
->>>>>>> theirs

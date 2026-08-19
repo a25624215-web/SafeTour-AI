@@ -1,37 +1,9 @@
-<<<<<<< ours
-from fastapi import FastAPI
-from auth import router as auth_router
-from tourist import router as tourist_router
-from risk import router as risk_router
-from geofence import router as geofence_router
-from sos import router as sos_router
-app = FastAPI(
-    title="SafeTour AI Backend",
-    description="Backend API for Smart Tourist Safety Monitoring System",
-    version="1.0.0"
-)
-app.include_router(auth_router)
-app.include_router(tourist_router)
-app.include_router(risk_router)
-app.include_router(geofence_router)
-app.include_router(sos_router)
-@app.get("/" )
-def home():
-    return {
-        "message": "SafeTour AI Backend is running"
-    }
-
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "healthy"
-    }
-=======
 import os
 import sys
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import requests
@@ -90,9 +62,6 @@ app.include_router(sos.router)
 app.include_router(tourist.router)
 app.include_router(geofence.router)
 app.include_router(risk.router)
-
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 # Mount static folder if exists
 static_dir = os.path.join(current_dir, "static")
@@ -284,22 +253,20 @@ def zone_check(latitude: float, longitude: float, db: Session = Depends(get_db))
     matched_zones = crud.check_point_in_geofences(db, latitude, longitude)
 
     if matched_zones:
-        highest = matched_zones[0]
+        highest_risk = matched_zones[0]
         return {
-            "project": "SafeTour AI",
             "inside_zone": True,
-            "zone_name": highest["name"],
-            "distance_km": highest["distance_km"],
-            "risk_level": highest["risk_level"],
-            "message": highest["advisory_message"]
+            "matched_zones_count": len(matched_zones),
+            "primary_zone": highest_risk["name"],
+            "zone_type": highest_risk["zone_type"],
+            "risk_level": highest_risk["risk_level"],
+            "distance_km": highest_risk["distance_km"],
+            "message": highest_risk["advisory_message"]
         }
 
     return {
-        "project": "SafeTour AI",
         "inside_zone": False,
-        "zone_name": None,
-        "distance_km": None,
+        "matched_zones_count": 0,
         "risk_level": "LOW",
-        "message": "No configured caution zone detected."
+        "message": "No hazardous zones detected within proximity."
     }
->>>>>>> theirs

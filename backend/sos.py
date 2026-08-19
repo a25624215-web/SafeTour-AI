@@ -1,20 +1,22 @@
-<<<<<<< ours
 from datetime import datetime, timezone
-
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List
+from sqlalchemy.orm import Session
+from database import get_db
+import crud
+import models
 
+router = APIRouter(prefix="/sos", tags=["SOS & Emergency"])
 
-router = APIRouter(
-    prefix="/sos",
-    tags=["SOS"]
-)
-
-
-# Temporary in-memory storage
+# Temporary in-memory storage (Aapka database variable)
 sos_alerts = []
 
+# =========================================================
+# SCHEMAS (Data Models)
+# =========================================================
 
+# Aapka Request Schema
 class SOSRequest(BaseModel):
     tourist_email: str
     latitude: float
@@ -23,10 +25,27 @@ class SOSRequest(BaseModel):
     emergency_contact: str
     incident_type: str
 
+# Team Member ke Request Schemas
+class SOSCreateRequest(BaseModel):
+    latitude: float
+    longitude: float
+    user_id: Optional[int] = None
+    caller_name: Optional[str] = "Anonymous Tourist"
+    emergency_type: Optional[str] = "General SOS"
+    message: Optional[str] = "Emergency Assistance Requested"
+
+class SOSResolveRequest(BaseModel):
+    dispatched_to: Optional[str] = "PCR Patrol Unit"
+
+
+# =========================================================
+# ENDPOINTS
+# =========================================================
+
+# --- AAPKE ENDPOINTS ---
 
 @router.post("/create")
 def create_sos(alert: SOSRequest):
-
     new_alert = {
         "id": len(sos_alerts) + 1,
         "tourist_email": alert.tourist_email,
@@ -38,36 +57,14 @@ def create_sos(alert: SOSRequest):
         "status": "ACTIVE",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-
     sos_alerts.append(new_alert)
-
     return {
         "message": "SOS alert created successfully",
         "alert": new_alert
-=======
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional
-from sqlalchemy.orm import Session
-from database import get_db
-import crud
-import models
-
-router = APIRouter(prefix="/sos", tags=["SOS & Emergency"])
+    }
 
 
-class SOSCreateRequest(BaseModel):
-    latitude: float
-    longitude: float
-    user_id: Optional[int] = None
-    caller_name: Optional[str] = "Anonymous Tourist"
-    emergency_type: Optional[str] = "General SOS"
-    message: Optional[str] = "Emergency Assistance Requested"
-
-
-class SOSResolveRequest(BaseModel):
-    dispatched_to: Optional[str] = "PCR Patrol Unit"
-
+# --- TEAM MEMBER KE ENDPOINTS ---
 
 @router.post("/trigger")
 def trigger_sos(data: SOSCreateRequest, db: Session = Depends(get_db)):
@@ -105,52 +102,40 @@ def trigger_sos(data: SOSCreateRequest, db: Session = Depends(get_db)):
                 "Tourist Help Desk"
             ]
         }
->>>>>>> theirs
     }
 
+
+# --- COMBINED ACTIVE & RESOLVE LOGIC ---
 
 @router.get("/active")
-<<<<<<< ours
-def get_active_sos():
-
-    active_alerts = [
-        alert
-        for alert in sos_alerts
-        if alert["status"] == "ACTIVE"
-    ]
-
+def get_active_alerts(db: Session = Depends(get_db)):
+    # Local in-memory active list (Aapka code fallback ke liye)
+    local_active = [alert for alert in sos_alerts if alert["status"] == "ACTIVE"]
+    
+    # DB active list (Team member ka code)
+    db_alerts = crud.get_active_sos_alerts(db)
+    
     return {
-        "active_sos_count": len(active_alerts),
-        "alerts": active_alerts
+        "count": len(db_alerts) + len(local_active),
+        "db_alerts": [a.to_dict() for a in db_alerts],
+        "local_alerts": local_active
     }
 
 
-@router.put("/{sos_id}/resolve")
-def resolve_sos(sos_id: int):
-
+# Backward-compatible resolve for in-memory lists (Aapka check)
+@router.put("/{sos_id}/resolve-local")
+def resolve_sos_local(sos_id: int):
     for alert in sos_alerts:
-
         if alert["id"] == sos_id:
-
             alert["status"] = "RESOLVED"
-
             return {
-                "message": "SOS alert resolved successfully",
+                "message": "Local SOS alert resolved successfully",
                 "alert": alert
             }
-
-    return {
-        "message": "SOS alert not found"
-    }
-=======
-def get_active_alerts(db: Session = Depends(get_db)):
-    alerts = crud.get_active_sos_alerts(db)
-    return {
-        "count": len(alerts),
-        "alerts": [a.to_dict() for a in alerts]
-    }
+    raise HTTPException(status_code=404, detail="Local SOS alert not found")
 
 
+# Real DB Resolve endpoint (Team Member ka check)
 @router.post("/{sos_id}/resolve")
 def resolve_sos(sos_id: int, data: SOSResolveRequest, db: Session = Depends(get_db)):
     resolved = crud.resolve_sos_alert(db, sos_id, dispatched_to=data.dispatched_to)
@@ -161,4 +146,3 @@ def resolve_sos(sos_id: int, data: SOSResolveRequest, db: Session = Depends(get_
         "message": f"SOS Alert #{sos_id} marked as resolved.",
         "alert": resolved.to_dict()
     }
->>>>>>> theirs

@@ -1,14 +1,18 @@
-<<<<<<< ours
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Optional, List
+from sqlalchemy.orm import Session
+from database import get_db
+import crud
+import models
 
+router = APIRouter(prefix="/risk", tags=["Risk Engine & Incident Reporting"])
 
-router = APIRouter(
-    prefix="/risk",
-    tags=["Risk Engine"]
-)
+# =========================================================
+# SCHEMAS (Data Models)
+# =========================================================
 
-
+# Aapka Input Schema
 class RiskRequest(BaseModel):
     location_risk: int
     time_risk: int
@@ -18,9 +22,30 @@ class RiskRequest(BaseModel):
     route_deviation: bool
     current_alert: int
 
+# Team Member ka Input Schemas
+class SafetyAnalysisInput(BaseModel):
+    location: str
+    time: str  # 'day', 'night', 'late night'
+    crowd_level: str  # 'high', 'medium', 'low'
+    emergency: bool = False
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+class SafetyReportCreate(BaseModel):
+    user_id: Optional[int] = None
+    location_id: Optional[int] = None
+    report_type: str
+    severity: str = "medium"  # 'low', 'medium', 'high', 'critical'
+    description: str
+    latitude: float
+    longitude: float
+
+
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
 
 def calculate_risk(data: RiskRequest):
-
     score = (
         data.location_risk * 25
         + data.time_risk * 15
@@ -46,46 +71,20 @@ def calculate_risk(data: RiskRequest):
     return score, risk_level
 
 
+# =========================================================
+# ENDPOINTS
+# =========================================================
+
+# Aapka Endpoint
 @router.post("/calculate")
 def calculate_safety_risk(data: RiskRequest):
-
     score, risk_level = calculate_risk(data)
-
     return {
         "safety_score": 100 - score,
         "risk_level": risk_level
     }
-=======
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional
-from sqlalchemy.orm import Session
-from database import get_db
-import crud
-import models
 
-router = APIRouter(prefix="/risk", tags=["Risk Engine & Incident Reporting"])
-
-
-class SafetyAnalysisInput(BaseModel):
-    location: str
-    time: str  # 'day', 'night', 'late night'
-    crowd_level: str  # 'high', 'medium', 'low'
-    emergency: bool = False
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-
-
-class SafetyReportCreate(BaseModel):
-    user_id: Optional[int] = None
-    location_id: Optional[int] = None
-    report_type: str
-    severity: str = "medium"  # 'low', 'medium', 'high', 'critical'
-    description: str
-    latitude: float
-    longitude: float
-
-
+# Team Member ke Endpoints
 @router.post("/analyze")
 def analyze_safety(data: SafetyAnalysisInput, db: Session = Depends(get_db)):
     risk_score = 0
@@ -144,7 +143,6 @@ def analyze_safety(data: SafetyAnalysisInput, db: Session = Depends(get_db)):
         "inside_geofence": inside_geofence
     }
 
-
 @router.post("/report")
 def submit_safety_report(data: SafetyReportCreate, db: Session = Depends(get_db)):
     report = crud.create_safety_report(
@@ -163,7 +161,6 @@ def submit_safety_report(data: SafetyReportCreate, db: Session = Depends(get_db)
         "report": report.to_dict()
     }
 
-
 @router.get("/reports")
 def get_safety_reports(limit: int = 50, db: Session = Depends(get_db)):
     reports = crud.get_recent_safety_reports(db, limit=limit)
@@ -171,4 +168,3 @@ def get_safety_reports(limit: int = 50, db: Session = Depends(get_db)):
         "count": len(reports),
         "reports": [r.to_dict() for r in reports]
     }
->>>>>>> theirs
